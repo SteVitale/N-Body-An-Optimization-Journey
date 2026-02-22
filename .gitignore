@@ -1,0 +1,16 @@
+# Cartella di configurazione di CLion
+.idea/
+
+# Cartelle di build (CMake genera cartelle tipo cmake-build-debug o cmake-build-release)
+cmake-build-*/
+
+# File oggetto e binari
+*.o
+*.obj
+*.exe
+*.out
+*.app
+
+# File di sistema
+.DS_Store
+Thumbs.db
