@@ -1,6 +1,6 @@
 #include <random>
 #include <vector>
-#include "V2_StructOfArray.h"
+#include "../../V2_StructOfArray.h"
 /*
  *
  * Nella V1 (AoS): x, y, z sono attaccati in memoria (12 byte in totale). Quando la CPU chiede x,

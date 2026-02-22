@@ -1,8 +1,10 @@
 #include <random>
 #include <vector>
-#include "V0_baseline.h"
+#include "../../V1_NewtonThirdLaw.h"
 
-namespace V0 {
+
+namespace V1 {
+
     // Genera Particelle
     std::vector<Particle> generateParticles(const int N) {
         // Pre-allochiamo la memoria esatta. Evita i push_back in un loop se sai già la dimensione!
@@ -37,10 +39,10 @@ namespace V0 {
         for (int i = 0; i < N; ++i) {
 
             // ... guardo tutte le altre particelle 'j' ...
-            for (int j = 0; j < N; ++j) {
+            for (int j = i+1; j < N; ++j) {
 
                 // Una particella non attrae se stessa!
-                if (i == j) continue;
+                //if (i == j) continue;
 
                 // 1. Calcolo la distanza parziale tra la particella 'i' e la particella 'j'
                 const float dx = particles[j].x - particles[i].x;
@@ -53,10 +55,15 @@ namespace V0 {
                 // 3. Calcolo Fmag (la forza specifica TRA la particella i e la particella j)
                 const float Fmag = 1.0f / (r * r * r);
 
-                // 4. Aggiungo questo singolo contributo alla velocità della particella 'i'
+                // 4.1 Aggiungo questo singolo contributo alla velocità della particella 'i'
                 particles[i].vx += dx * Fmag;
                 particles[i].vy += dy * Fmag;
                 particles[i].vz += dz * Fmag;
+
+                // 4.2 Aggiorno la particella j (NewtonThirdLaw Applicata)
+                particles[j].vx -= dx * Fmag;
+                particles[j].vy -= dy * Fmag;
+                particles[j].vz -= dz * Fmag;
             }
         }
     }

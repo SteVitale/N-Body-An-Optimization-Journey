@@ -7,13 +7,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(NBodyOptimization
-        main.cpp
-        V0_baseline.cpp
-        V1_NewtonThirdLaw.cpp
-        V2_StructOfArray.cpp
-        V3_LoopHoisting.cpp
-        V4_Math_Intrinsic.cpp
-        V5_SIMD.cpp
+        src/main.cpp
+        src/v0/V0_baseline.cpp
+        src/v1/V1_NewtonThirdLaw.cpp
+        src/v2/V2_StructOfArray.cpp
+        src/v3/V3_LoopHoisting.cpp
+        src/v4/V4_Math_Intrinsic.cpp
+        src/v5/V5_SIMD.cpp
         )
 
 # FLAG DI COMPILAZIONE ESPLICITI PER GCC/CLANG

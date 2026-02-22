@@ -1,12 +1,12 @@
 #include <iostream>
 #include <chrono>
 
-#include "V0_baseline.h"
-#include "V1_NewtonThirdLaw.h"
-#include "V2_StructOfArray.h"
-#include "V3_LoopHoisting.h"
-#include "V4_Math_Intrinsic.h"
-#include "V5_SIMD.h"
+#include "v0/V0_baseline.h"
+#include "v1/V1_NewtonThirdLaw.h"
+#include "v2/V2_StructOfArray.h"
+#include "v3/V3_LoopHoisting.h"
+#include "v4/V4_Math_Intrinsic.h"
+#include "v5/V5_SIMD.h"
 
 #define NUM_PARTICLES 100000
 
