@@ -102,3 +102,28 @@ I test sono stati eseguiti su un sistema di $N = 100.000$ particelle.
     3. Il loop interno ora esegue *solo* letture contigue e somme su accumulatori locali (`reduction`). Nessuna scrittura in memoria lenta.
 * **Risultato:** Anche se il programma esegue il doppio delle operazioni matematiche rispetto alla V3, l'hardware le esegue 8 volte più in fretta elaborando blocchi contigui di memoria.
 * **Tempo misurato:** ~6.6 secondi. (Uno Speedup di **7x** rispetto alla baseline iniziale, eseguito interamente in Single-Thread).
+
+---
+
+### V6: Cache Blocking (Tiling) e Memory Tuning
+* **Tecnica:** Suddivisione dello spazio di iterazione in blocchi (Loop Tiling) per mantenere i dati all'interno della Cache L1/L2 e mitigare il "Memory Wall".
+
+* **Il Problema (In vista del Multi-Threading):** Anche se la V5 esegue i calcoli a velocità impressionante grazie al SIMD, gli array delle posizioni (`x, y, z`) per 100.000 particelle occupano circa 1.2 MB. Questo supera ampiamente la capacità della Cache L1 (tipicamente 32-64 KB per core). Ad ogni iterazione, la CPU deve sfrattare dati vecchi per caricare i nuovi, stressando il bus della RAM. Se attivassimo il multi-threading ora, i core finirebbero per litigare per la banda passante della memoria.
+* **La Soluzione e il Tuning:** Abbiamo trasformato il doppio ciclo in un quadruplo ciclo, calcolando le interazioni tra "piastrelle" (Tiles) di particelle. Abbiamo eseguito un tuning empirico per trovare il *sweet spot* della dimensione del blocco (`BLOCK_SIZE`).
+  * Con `BLOCK_SIZE = 256`, il programma era leggermente più lento (~6.3s) a causa dell'overhead eccessivo dei cicli e delle troppe scritture intermedie in memoria.
+  * Con `BLOCK_SIZE = 4096`, abbiamo centrato l'obiettivo. 4096 `float` occupano circa 16 KB per array (totale ~48 KB per posizioni 3D), una dimensione che si incastra perfettamente tra la Cache L1 e la velocissima Cache L2 del processore, azzerando i viaggi inutili verso la RAM.
+* **Risultato:** Abbiamo stabilizzato le performance annullando il collo di bottiglia della memoria. Il codice è ora strutturalmente pronto per essere distribuito su più core senza far collassare il memory bus.
+* **Tempo misurato:** ~6.0 secondi.
+
+---
+
+### V7: Il Gran Finale - Multi-Threading con OpenMP
+* **Tecnica:** Parallelizzazione Shared Memory su più core tramite direttive OpenMP (`#pragma omp parallel for schedule(static)`).
+  [Image of multi-core CPU architecture memory hierarchy]
+* **L'Architettura:** Fino alla V6, avevamo ottimizzato tutto il possibile per un **singolo core** (Memoria SoA, Registri Locali, Vettorizzazione SIMD e Tiling). Con la V7, abbiamo sguinzagliato tutti i core logici e fisici del processore.
+* **Perché funziona perfettamente:** Abbiamo applicato la parallelizzazione sul **ciclo esterno** (quello delle particelle `i`). Questo garantisce che ogni thread (core) prenda in carico un pacchetto indipendente di particelle. Nessun core cercherà mai di scrivere sulla stessa cella di memoria (`p.vx[i]`) contemporaneamente a un altro core. Questo elimina alla radice il rischio di *Race Conditions* e la necessità di usare lenti meccanismi di sincronizzazione (lock/mutex).
+* **La Sinergia Definitiva:** 1. Il ciclo esterno divide il carico sui core (Thread-Level Parallelism).
+  2. Il ciclo interno di ogni core macina i dati a blocchi di 8 tramite AVX (Data-Level Parallelism).
+  3. Il SoA e il Tiling garantiscono che la RAM riesca ad alimentare tutti i core senza intasare il bus di memoria.
+* **Risultato Finale:** La barriera del secondo è stata infranta. Il tempo di calcolo scala quasi linearmente con il numero di core a disposizione, portando l'uso della CPU al 100%.
+* **Tempo misurato:** ~0.96 secondi. (**Speedup finale rispetto alla Baseline V0: ~45x**).

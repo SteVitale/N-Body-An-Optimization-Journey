@@ -1,6 +1,6 @@
 #include <random>
 #include <vector>
-#include "../../V0_baseline.h"
+#include "V0_baseline.h"
 
 namespace V0 {
     // Genera Particelle

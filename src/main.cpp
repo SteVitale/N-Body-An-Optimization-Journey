@@ -7,6 +7,8 @@
 #include "v3/V3_LoopHoisting.h"
 #include "v4/V4_Math_Intrinsic.h"
 #include "v5/V5_SIMD.h"
+#include "v6/V6_Tiling.h"
+#include "v7/V7_OpenMP.h"
 
 #define NUM_PARTICLES 100000
 
@@ -15,7 +17,9 @@
 // #define V_2
 // #define V_3
 // #define V_4
-#define V_5
+// #define V_5
+// #define V_6
+#define V_7
 
 auto getTime() {
     return std::chrono::high_resolution_clock::now();
@@ -119,6 +123,36 @@ int main() {
     std::cout << "----------------------------------------" << std::endl;
 #endif
 
+    /*
+     *  COMPUTAZIONE V6
+     */
+#ifdef V_6
+    auto particles_v6 = V6::generateParticles(NUM_PARTICLES);
+    std::cout << "----------------------------------------" << std::endl;
+    std::cout << "Inizio computazione NBody V6" << std::endl;
+    const auto Start6 = getTime();
+    V6::computeNbody(particles_v6);
+    const auto End6 = getDiffTime(Start6);
+    std::cout << "Fine computazione NBody V6" << std::endl;
+    std::cout << "Tempo V6: " << End6 <<" ms" << "(Secondi: " << End6 / 1000.0 << " s)" << std::endl;
+    std::cout << "----------------------------------------" << std::endl;
+#endif
+
+    /*
+     *  COMPUTAZIONE V7
+     */
+#ifdef V_7
+    auto particles_v7 = V7::generateParticles(NUM_PARTICLES);
+    std::cout << "----------------------------------------" << std::endl;
+    std::cout << "Inizio computazione NBody V7" << std::endl;
+    const auto Start7 = getTime();
+    V7::computeNbody(particles_v7);
+    const auto End7 = getDiffTime(Start7);
+    std::cout << "Fine computazione NBody V7" << std::endl;
+    std::cout << "Tempo V7: " << End7 <<" ms" << "(Secondi: " << End7 / 1000.0 << " s)" << std::endl;
+    std::cout << "----------------------------------------" << std::endl;
+#endif
+
 /*
  * CI ASSICURIAMO CHE IL COMPILATORE -03 NON TOGLIE I LOOP
  */
@@ -140,6 +174,12 @@ int main() {
 #endif
 #ifdef V_5
     std::cout << "Check: v5[0] = " << particles_v5.vx[0] << "\n";
+#endif
+#ifdef V_6
+    std::cout << "Check: v6[0] = " << particles_v6.vx[0] << "\n";
+#endif
+#ifdef V_7
+    std::cout << "Check: v7[0] = " << particles_v7.vx[0] << "\n";
 #endif
     return 0;
 }

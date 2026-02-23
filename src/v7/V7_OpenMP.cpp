@@ -1,8 +1,9 @@
-#include <random>
-#include <vector>
-#include "V4_Math_Intrinsic.h"
+#include "V7_OpenMP.h"
 
-namespace V4 {
+#include <vector>
+#include <random>
+
+namespace V7 {
 
     // Genera Particelle
     Particles generateParticles(const int N) {
@@ -39,9 +40,14 @@ namespace V4 {
     }
 
     // Calcola Nbody
-    void computeNbody(Particles &particles) { // O come hai chiamato la struct SoA
+    void computeNbody(Particles &particles) {
         const int N = particles.x.size();
 
+        // QUESTA E' LA MAGIA.
+        // Chiediamo a OpenMP di parallelizzare il ciclo esterno (le particelle 'i').
+        // 'schedule(static)' dice: dividi le 100.000 iterazioni in blocchi uguali
+        // e assegnale ai core in modo fisso all'inizio del loop.
+        #pragma omp parallel for schedule(static)
         for (int i = 0; i < N; ++i) {
 
             const float xi = particles.x[i];
@@ -52,34 +58,29 @@ namespace V4 {
             float acc_vy = 0.0f;
             float acc_vz = 0.0f;
 
-            for (int j = i + 1; j < N; ++j) {
+            // Il SIMD continua a lavorare sul ciclo interno DENTRO ogni singolo core!
+            #pragma omp simd reduction(+:acc_vx, acc_vy, acc_vz)
+            for (int j = 0; j < N; ++j) {
 
                 const float dx = particles.x[j] - xi;
                 const float dy = particles.y[j] - yi;
                 const float dz = particles.z[j] - zi;
 
-                // 1. Calcoliamo la distanza al quadrato
-                const float r2 = dx*dx + dy*dy + dz*dz + 0.001f; // eps
-
-                // 2. Calcoliamo l'INVERSO della radice quadrata.
-                // Scritto così, il compilatore capirà cosa vogliamo fare.
-                const float invR = 1.0f / std::sqrt(r2);
-
-                // 3. NIENTE PIU' DIVISIONI! Calcoliamo 1/r^3 con sole moltiplicazioni
-                const float Fmag = invR * invR * invR;
+                const float r = std::sqrt(dx*dx + dy*dy + dz*dz + 0.001f);
+                const float Fmag = 1.0f / (r * r * r);
 
                 acc_vx += dx * Fmag;
                 acc_vy += dy * Fmag;
                 acc_vz += dz * Fmag;
-
-                particles.vx[j] -= dx * Fmag;
-                particles.vy[j] -= dy * Fmag;
-                particles.vz[j] -= dz * Fmag;
             }
 
+            // Siccome ogni thread sta lavorando su una 'i' diversa,
+            // nessuno scriverà mai sulla stessa cella di memoria contemporaneamente.
+            // Zero conflitti (Race Conditions), zero lock!
             particles.vx[i] += acc_vx;
             particles.vy[i] += acc_vy;
             particles.vz[i] += acc_vz;
         }
     }
 }
+

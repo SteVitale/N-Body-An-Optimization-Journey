@@ -1,6 +1,6 @@
 #include <random>
 #include <vector>
-#include "../../V1_NewtonThirdLaw.h"
+#include "V1_NewtonThirdLaw.h"
 
 
 namespace V1 {

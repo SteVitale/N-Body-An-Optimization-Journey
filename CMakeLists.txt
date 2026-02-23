@@ -14,7 +14,9 @@ add_executable(NBodyOptimization
         src/v3/V3_LoopHoisting.cpp
         src/v4/V4_Math_Intrinsic.cpp
         src/v5/V5_SIMD.cpp
-        )
+        src/v6/V6_Tiling.cpp
+        src/v7/V7_OpenMP.cpp
+)
 
 # FLAG DI COMPILAZIONE ESPLICITI PER GCC/CLANG
 target_compile_options(NBodyOptimization PRIVATE
