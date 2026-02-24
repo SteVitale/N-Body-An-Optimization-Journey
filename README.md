@@ -4,6 +4,17 @@ This project explores C++ optimization techniques (High Performance Computing) a
 
 ---
 
+## 📑 Table of Contents
+- [📊 Results and Benchmarks](#-results-and-benchmarks-n--100000)
+- [1. Problem Description](#1-problem-description)
+- [2. Mathematical Computation](#2-mathematical-computation)
+- [3. Why the Naive Version is "Intractable"](#3-why-the-naive-version-is-intractable)
+- [4. Optimization Roadmap](#4-optimization-roadmap)
+- [5. Optimization History: From Naive to HPC](#optimization-history-from-naive-to-hpc)
+- [6 How to Build and Run](#️-how-to-build-and-run)
+
+---
+
 ## 📊 Results and Benchmarks (N = 100,000)
 
 All tests were strictly executed in `Release` mode (`-O3 -march=native -ffast-math` flags).
@@ -202,3 +213,4 @@ Once the compilation is complete, run the executable:
 ```bash
 ./NBodyOptimization
 ```
+
