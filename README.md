@@ -1,26 +1,26 @@
 # Direct N-Body Simulation: An Optimization Journey
 
-Questo progetto esplora le tecniche di ottimizzazione in C++ (High Performance Computing) applicate al classico problema della simulazione a N-corpi (Direct N-Body). L'obiettivo non è la precisione fisica, ma misurare e abbattere i tempi di calcolo di un algoritmo computazionalmente intensivo sfruttando al massimo l'architettura della CPU (Cache, SIMD, Branch Predictor).
+This project explores C++ optimization techniques (High Performance Computing) applied to the classic Direct N-Body simulation problem. The goal is not physical accuracy, but rather measuring and drastically reducing the computation time of a compute-intensive algorithm by fully exploiting CPU architecture (Cache, SIMD, Branch Predictor).
 
 ---
 
-## 📊 Risultati e Benchmark (N = 100.000)
+## 📊 Results and Benchmarks (N = 100,000)
 
-Tutti i test sono stati eseguiti rigorosamente in modalità `Release` (flag `-O3 -march=native -ffast-math`).
+All tests were strictly executed in `Release` mode (`-O3 -march=native -ffast-math` flags).
 
-| Versione | Ottimizzazione Applicata | Tempo (s) | Speedup vs V0 | Note |
+| Version | Optimization Applied | Time (s) | Speedup vs V0 | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **V0** | Baseline (Algoritmo Ingenuo $O(N^2)$) | 43.30 s | **1.0x** | Nessuna ottimizzazione, layout AoS. |
-| **V1** | Terzo Principio di Newton | 20.25 s | **2.1x** | Operazioni dimezzate, ma introduce loop irregolare. |
-| **V2** | Data-Oriented Design (SoA) | 33.06 s | **1.3x** | *Peggioramento*: troppi accessi sparsi in RAM e Cache Misses. |
-| **V3** | Loop Hoisting + Accumulatori | 18.37 s | **2.3x** | Risolve i problemi del SoA sfruttando i registri CPU. |
-| **V4** | Intrinsics Matematici (`rsqrt`) | 20.84 s | **2.0x** | *Peggioramento*: L'hardware moderno per `sqrt` batte l'approssimazione. |
-| **V5** | Vettorizzazione SIMD forzata (AVX) | 6.00 s | **7.2x** | Rinuncia a V1 per sbloccare loop perfetti a blocchi di 8 nei registri a 256-bit. |
-| **V6** | Cache Blocking / Tiling | 6.00 s | **7.2x** | Stabilizza la Cache L1/L2 (Block = 4096) mitigando il Memory Wall. |
-| **V7** | Multi-Threading (OpenMP) | 0.96 s | **45.1x** | Parallelizzazione sui core CPU senza *Race Conditions*. Il muro del secondo è infranto. |
+| **V0** | Baseline (Naive $O(N^2)$ Algorithm) | 43.30 s | **1.0x** | No optimization, AoS memory layout. |
+| **V1** | Newton's Third Law | 20.25 s | **2.1x** | Math operations halved, but introduces an irregular loop. |
+| **V2** | Data-Oriented Design (SoA) | 33.06 s | **1.3x** | *Degradation*: Too many scattered RAM accesses and Cache Misses. |
+| **V3** | Loop Hoisting + Accumulators | 18.37 s | **2.3x** | Solves SoA issues by exploiting CPU registers. |
+| **V4** | Math Intrinsics (`rsqrt`) | 20.84 s | **2.0x** | *Degradation*: Modern hardware `sqrt` beats the approximation. |
+| **V5** | Forced SIMD Vectorization (AVX) | 6.00 s | **7.2x** | Abandons V1 to unlock perfect loops in blocks of 8 using 256-bit registers. |
+| **V6** | Cache Blocking / Tiling | 6.00 s | **7.2x** | Stabilizes L1/L2 Cache (Block = 4096), mitigating the Memory Wall. |
+| **V7** | Multi-Threading (OpenMP) | 0.96 s | **45.1x** | CPU core parallelization without Race Conditions. The 1-second barrier is broken. |
 
-### 📉 Grafico dei Tempi di Esecuzione (Più basso è meglio)
-Il seguente grafico mostra il crollo dei tempi di esecuzione passando da un codice "naïve" a un codice *Hardware-Aware*.
+### 📉 Execution Time Chart (Lower is Better)
+The following chart shows the execution time collapsing as we move from a "naive" code to a *Hardware-Aware* implementation.
 
 ```mermaid
 xychart-beta
@@ -30,8 +30,9 @@ xychart-beta
   bar [43.30, 20.25, 33.06, 18.37, 20.84, 6.00, 6.00, 0.96]
 ```
 
-### 🚀 Grafico dello Speedup (Più alto è meglio)
-Il moltiplicatore prestazionale rispetto alla baseline di partenza. Dimostra come la "Simpatia Meccanica" verso l'hardware possa spremere prestazioni irraggiungibili dal solo algoritmo.
+### 🚀 Performance Speedup Chart (Higher is Better)
+The performance multiplier compared to the starting baseline. It demonstrates how "Mechanical Sympathy" towards the hardware can squeeze out performance unattainable by algorithm changes alone.
+
 ```mermaid
 xychart-beta
   title "Performance Speedup vs V0 (Higher is Better)"
@@ -39,132 +40,133 @@ xychart-beta
   y-axis "Speedup (x)" 0 --> 46
   bar [1.0, 2.1, 1.3, 2.3, 2.0, 7.2, 7.2, 45.1]
 ```
+
 ---
 
-## 1. Descrizione del Problema
-Il problema N-Body consiste nel calcolare le forze di interazione (gravitazionali o elettrostatiche) che ogni particella in un sistema esercita su tutte le altre. Nella versione "Direct", l'interazione viene calcolata esplicitamente per ogni singola coppia.
+## 1. Problem Description
+The N-Body problem involves calculating the interaction forces (gravitational or electrostatic) that every particle in a system exerts on all others. In the "Direct" version, the interaction is explicitly calculated for every single pair.
 
-
-
-## 2. Il Calcolo Matematico
-Per ogni coppia di particelle $i$ e $j$, calcoliamo le componenti della distanza:
+## 2. Mathematical Computation
+For each pair of particles $i$ and $j$, we calculate the distance components:
 $$dx = x_j - x_i$$
 $$dy = y_j - y_i$$
 $$dz = z_j - z_i$$
 
-Calcoliamo poi la distanza totale al quadrato. Viene aggiunto un fattore di softening $\epsilon^2$ per evitare divisioni per zero nel caso in cui due particelle collidano o si sovrappongano:
+We then calculate the total squared distance. A softening factor $\epsilon^2$ is added to avoid division by zero if two particles collide or overlap:
 $$r^2 = dx^2 + dy^2 + dz^2 + \epsilon^2$$
 
-Ricaviamo la grandezza scalare della forza (incorporando le masse e la costante gravitazionale in un valore unitario per stressare solo il calcolo geometrico):
+We derive the scalar magnitude of the force (bundling masses and the gravitational constant into a unit value to stress-test only the geometric computation):
 $$F_{mag} = \frac{1}{(r^2 \cdot \sqrt{r^2})}$$
 
-Infine, aggiorniamo la velocità della particella $i$ lungo i tre assi, proiettando la forza vettorialmente:
+Finally, we update the velocity of particle $i$ along the three axes by vectorially projecting the force:
 $$v_{xi} = v_{xi} + dx \cdot F_{mag}$$
 $$v_{yi} = v_{yi} + dy \cdot F_{mag}$$
 $$v_{zi} = v_{zi} + dz \cdot F_{mag}$$
 
 ---
 
-## 3. Perché la versione Naive è "Intrattabile"
-Un'implementazione ingenua (Baseline) soffre di tre colli di bottiglia catastrofici:
+## 3. Why the Naive Version is "Intractable"
+A naive implementation (Baseline) suffers from three catastrophic bottlenecks:
 
-* **Complessità Algoritmica $O(N^2)$:** Un sistema di sole 100.000 particelle richiede 10 miliardi di interazioni per un singolo passo temporale.
-* **Inquinamento della Cache (AoS):** Utilizzare un classico Array of Structures (es. `struct Particle { float x, y, z, vx, vy, vz; }`) costringe la CPU a caricare in Cache dati non necessari simultaneamente, saturando la banda della RAM e causando continui Cache Miss.
-* **Latenza Matematica:** Le operazioni di radice quadrata (`sqrt`) e divisione sono le istruzioni hardware più costose per l'ALU, richiedendo svariati cicli di clock rispetto a una semplice moltiplicazione.
+* **Algorithmic Complexity $O(N^2)$:** A system of just 100,000 particles requires 10 billion interactions for a single time step.
+* **Cache Pollution (AoS):** Using a classic Array of Structures (e.g., `struct Particle { float x, y, z, vx, vy, vz; }`) forces the CPU to simultaneously load unnecessary data into the Cache, saturating RAM bandwidth and causing constant Cache Misses.
 
----
-
-## 4. Roadmap di Ottimizzazione
-L'evoluzione del codice seguirà questi step rigorosi, misurando i tempi di esecuzione a ogni passaggio:
-
-1. **V0 - Baseline (AoS):** Implementazione ingenua $O(N^2)$ in C++ standard.
-2. **V1 - Newton's Third Law:** Sfruttamento dell'azione e reazione ($F_{ij} = -F_{ji}$) per dimezzare il numero di interazioni matematiche.
-3. **V2 - Data-Oriented Design (SoA):** Ristrutturazione della memoria in Structure of Arrays per massimizzare i Cache Hit.
-4. **V3 - Loop Hoisting:** Spostiamo tutto ciò che riguarda 'i' nei registri ultra-veloci della CPU (variabili locali), e aggiorniamo la memoria di i una volta sola alla fine.
-5. **V4 - Math & Intrinsics:** Sostituzione di `sqrt` e divisioni con approssimazioni hardware rapide ed eliminazione delle sottoespressioni comuni (CSE).
-6. **V5 - Auto-Vectorization (SIMD):** Preparazione dei loop per permettere al compilatore di usare istruzioni AVX/AVX2.
-7. **V6 - Cache Blocking (Tiling):** Suddivisione del calcolo in blocchi dimensionati per rimanere all'interno della Cache L1/L2.
-
-# Cronistoria delle Ottimizzazioni: Da Naive a HPC
-
-Questo documento traccia l'evoluzione del nostro solver N-Body. Ogni versione applica una specifica tecnica di ottimizzazione (algoritmica, di memoria o matematica), dimostrando come la "simpatia meccanica" verso l'hardware possa abbattere drasticamente i tempi di esecuzione.
-
-I test sono stati eseguiti su un sistema di $N = 100.000$ particelle.
+* **Mathematical Latency:** Square root (`sqrt`) and division operations are the most expensive hardware instructions for the ALU, requiring several clock cycles compared to a simple multiplication.
 
 ---
 
-### V0: La Baseline (Approccio Ingenuo)
-* **Tecnica:** Nessuna. Doppio ciclo `for` annidato ($O(N^2)$), layout di memoria AoS (Array of Structures), matematica standard.
-* **Problema:** La CPU fa calcoli ridondanti, la Cache L1 è inquinata da dati inutili (`vx, vy, vz` caricati insieme a `x, y, z`), e le istruzioni matematiche pesanti (`sqrt`, `/`) bloccano l'ALU.
-* **Tempo misurato:** ~41.42 secondi.
+## 4. Optimization Roadmap
+The code's evolution will follow these rigorous steps, measuring execution times at each stage:
+
+1. **V0 - Baseline (AoS):** Naive $O(N^2)$ implementation in standard C++.
+2. **V1 - Newton's Third Law:** Exploiting action and reaction ($F_{ij} = -F_{ji}$) to halve mathematical interactions.
+3. **V2 - Data-Oriented Design (SoA):** Memory restructuring into Structure of Arrays to maximize Cache Hits.
+4. **V3 - Loop Hoisting:** Moving everything related to particle $i$ into ultra-fast CPU registers (local variables), and updating memory only once at the end of the loop.
+5. **V4 - Math & Intrinsics:** Replacing `sqrt` and divisions with fast hardware approximations and eliminating common subexpressions.
+6. **V5 - Auto-Vectorization (SIMD):** Structuring loops to allow the compiler to use AVX/AVX2 instructions.
+7. **V6 - Cache Blocking (Tiling):** Dividing the computation into sized blocks to fit entirely within the L1/L2 Cache.
 
 ---
 
-### V1: Ottimizzazione Algoritmica (Terzo Principio di Newton)
-* **Tecnica:** Sfruttamento dell'azione e reazione ($F_{ij} = -F_{ji}$). Il loop interno parte da `j = i + 1`, calcolando solo il "triangolo superiore" delle interazioni.
-* **Risultato:** Le operazioni matematiche vengono letteralmente dimezzate.
-* **Tempo misurato:** ~22.15 secondi (Speedup di ~2.1x).
+# Optimization History: From Naive to HPC
+
+This section traces the evolution of our N-Body solver. Each version applies a specific optimization technique (algorithmic, memory, or mathematical), proving how "mechanical sympathy" towards hardware can drastically reduce execution times.
+
+Tests were run on a system of $N = 100,000$ particles.
 
 ---
 
-### V2: Il Paradosso del Data-Oriented Design (SoA)
-* **Tecnica:** Ristrutturazione della memoria in SoA (Structure of Arrays). I dati sono separati in array contigui di sole `x`, sole `y`, ecc.
-* **Il Problema (Cache Trashing):** In modo controintuitivo, le prestazioni sono **peggiorate**. Perché? Nel codice scalare, calcolare le distanze su 3 array separati costringe la CPU a mantenere aperti 3 flussi di lettura dalla RAM simultaneamente. Inoltre, ad ogni singola iterazione di `j`, il programma continuava a leggere `x[i]` (che non cambia mai) e a scrivere in memoria su `vx[i]`, saturando la banda della RAM e causando continui *Cache Miss*.
-* **Tempo misurato:** ~26.25 secondi (Rallentamento).
+### V0: The Baseline (Naive Approach)
+* **Technique:** None. Nested double `for` loop ($O(N^2)$), AoS (Array of Structures) memory layout, standard math.
+* **Problem:** The CPU performs redundant calculations, the L1 Cache is polluted with useless data (`vx, vy, vz` are loaded alongside `x, y, z`), and heavy math instructions (`sqrt`, `/`) stall the ALU.
+* **Measured Time:** ~41.42 seconds.
 
 ---
 
-### V3: Loop Hoisting & Accumulatori (Il Fix per il SoA)
-* **Tecnica:** Loop Invariant Code Motion (Hoisting) e utilizzo dei registri locali.
-* **Risultato:** Abbiamo spostato la lettura delle coordinate della particella `i` fuori dal loop interno, salvandole nei velocissimi registri della CPU. Abbiamo inoltre creato degli accumulatori locali (`acc_vx`, ecc.) per sommare le forze internamente, scrivendo il risultato finale in memoria (sulla RAM lenta) **una sola volta** alla fine del ciclo.
-* **Tempo misurato:** ~17.73 secondi (Abbiamo superato la V1 e sbloccato il vero potenziale del SoA).
+### V1: Algorithmic Optimization (Newton's Third Law)
+* **Technique:** Exploiting action and reaction ($F_{ij} = -F_{ji}$). The inner loop starts from `j = i + 1`, calculating only the "upper triangle" of interactions.
+* **Result:** Mathematical operations are literally halved.
+* **Measured Time:** ~22.15 seconds (Speedup of ~2.1x).
 
 ---
 
-### V4: Ottimizzazione Matematica e Intrinsics Hardware
-* **Tecnica:** Sostituzione della divisione e della radice quadrata con l'Inverso della Radice Quadrata (`rsqrt`) moltiplicato per se stesso.
-* **Dettaglio:** Le operazioni `std::sqrt` e `/` costano tra i 10 e i 15 cicli di clock ciascuna. Una moltiplicazione costa ~1 ciclo. Calcolando $invR = 1.0f / \sqrt{r^2}$ e ricavando la forza tramite $F_{mag} = invR \cdot invR \cdot invR$, eliminiamo del tutto le divisioni logiche nel loop interno.
-* **Il ruolo del Compilatore:** Questa tecnica brilla solo sbloccando le approssimazioni hardware del compilatore tramite il flag `-ffast-math`. Senza di esso, il compilatore deve rispettare il rigoroso standard IEEE-754 e non utilizzerà le velocissime istruzioni assembly dedicate (`rsqrtps` su architetture x86).
-* **Motivo del risultato inatteso:** L'ottimizzazione V4 (rsqrt) su CPU moderne può risultare controproducente rispetto alla V3. Le moderne ALU dispongono di unità di calcolo per sqrt talmente ottimizzate che l'overhead delle istruzioni di approssimazione introdotte da -ffast-math risulta maggiore del calcolo esatto. 
-* **Tempo misurato:** ~20.8 secondi (Maggiore di V4)*
+### V2: The Data-Oriented Design Paradox (SoA)
+* **Technique:** Memory restructuring into SoA (Structure of Arrays). Data is separated into contiguous arrays of only `x`, only `y`, etc.
+* **The Problem (Cache Thrashing):** Counterintuitively, performance **degraded**. Why? In scalar code, calculating distances across 3 separate arrays forces the CPU to keep 3 simultaneous read streams open from the RAM. Furthermore, at every single `j` iteration, the program kept reading `x[i]` (which never changes) and writing to memory at `vx[i]`, saturating RAM bandwidth and causing constant *Cache Misses*.
+* **Measured Time:** ~26.25 seconds (Slowdown).
 
 ---
 
-### V5: Il Trionfo dell'Hardware sull'Algoritmo (Auto-Vectorization SIMD)
-* **Tecnica:** Vettorizzazione SIMD forzata tramite `#pragma omp simd` e ritorno alla complessità algoritmica $O(N^2)$.
-* **Il Paradosso (Perché V1 bloccava V5):** L'ottimizzazione matematica della V1 (Terzo Principio di Newton) aveva introdotto un loop "triangolare" (`j = i + 1`) e scritture sparse in memoria (`p.vx[j] -= ...`). I compilatori odiano i loop irregolari e disabilitano le ottimizzazioni SIMD (AVX/AVX2) se notano scritture che possono creare dipendenze o corrompere i dati (Scatter Writes).
-* **La Soluzione:** Per sbloccare i registri vettoriali a 256-bit (che calcolano 8 particelle per singolo ciclo di clock), abbiamo dovuto **rinunciare al Terzo Principio di Newton**. Siamo tornati a un doppio ciclo completo (`j = 0; j < N`), raddoppiando letteralmente le operazioni logiche da fare. Tuttavia:
-    1. Il loop è tornato a essere un rettangolo perfetto, prevedibile per il compilatore.
-    2. Abbiamo rimosso completamente i salti condizionali (Branchless Programming): non c'è nessun `if(i == j) continue;`. Quando `i == j`, la distanza `dx` è 0, e il contributo alla forza aggiunge un innocuo `+0` all'accumulatore.
-    3. Il loop interno ora esegue *solo* letture contigue e somme su accumulatori locali (`reduction`). Nessuna scrittura in memoria lenta.
-* **Risultato:** Anche se il programma esegue il doppio delle operazioni matematiche rispetto alla V3, l'hardware le esegue 8 volte più in fretta elaborando blocchi contigui di memoria.
-* **Tempo misurato:** ~6.6 secondi. (Uno Speedup di **7x** rispetto alla baseline iniziale, eseguito interamente in Single-Thread).
+### V3: Loop Hoisting & Accumulators (Fixing SoA)
+* **Technique:** Loop Invariant Code Motion (Hoisting) and use of local registers.
+* **Result:** We moved the read operations for particle $i$'s coordinates outside the inner loop, saving them in ultra-fast CPU registers. We also created local accumulators (`acc_vx`, etc.) to sum the forces internally, writing the final result to memory (slow RAM) **only once** at the end of the loop.
+* **Measured Time:** ~17.73 seconds (We surpassed V1 and unlocked the true potential of SoA).
 
 ---
 
-### V6: Cache Blocking (Tiling) e Memory Tuning
-* **Tecnica:** Suddivisione dello spazio di iterazione in blocchi (Loop Tiling) per mantenere i dati all'interno della Cache L1/L2 e mitigare il "Memory Wall".
-
-* **Il Problema (In vista del Multi-Threading):** Anche se la V5 esegue i calcoli a velocità impressionante grazie al SIMD, gli array delle posizioni (`x, y, z`) per 100.000 particelle occupano circa 1.2 MB. Questo supera ampiamente la capacità della Cache L1 (tipicamente 32-64 KB per core). Ad ogni iterazione, la CPU deve sfrattare dati vecchi per caricare i nuovi, stressando il bus della RAM. Se attivassimo il multi-threading ora, i core finirebbero per litigare per la banda passante della memoria.
-* **La Soluzione e il Tuning:** Abbiamo trasformato il doppio ciclo in un quadruplo ciclo, calcolando le interazioni tra "piastrelle" (Tiles) di particelle. Abbiamo eseguito un tuning empirico per trovare il *sweet spot* della dimensione del blocco (`BLOCK_SIZE`).
-  * Con `BLOCK_SIZE = 256`, il programma era leggermente più lento (~6.3s) a causa dell'overhead eccessivo dei cicli e delle troppe scritture intermedie in memoria.
-  * Con `BLOCK_SIZE = 4096`, abbiamo centrato l'obiettivo. 4096 `float` occupano circa 16 KB per array (totale ~48 KB per posizioni 3D), una dimensione che si incastra perfettamente tra la Cache L1 e la velocissima Cache L2 del processore, azzerando i viaggi inutili verso la RAM.
-* **Risultato:** Abbiamo stabilizzato le performance annullando il collo di bottiglia della memoria. Il codice è ora strutturalmente pronto per essere distribuito su più core senza far collassare il memory bus.
-* **Tempo misurato:** ~6.0 secondi.
+### V4: Math Optimization and Hardware Intrinsics
+* **Technique:** Replacing division and square root with the Reciprocal Square Root (`rsqrt`) multiplied by itself.
+* **Detail:** `std::sqrt` and `/` operations cost between 10 and 15 clock cycles each. A multiplication costs ~1 cycle. By calculating $invR = 1.0f / \sqrt{r^2}$ and deriving the force via $F_{mag} = invR \cdot invR \cdot invR$, we completely eliminate logical divisions in the inner loop.
+* **The Compiler's Role:** This technique shines only by unlocking compiler hardware approximations via the `-ffast-math` flag. Without it, the compiler must respect the strict IEEE-754 standard and won't use the ultra-fast dedicated assembly instructions (`rsqrtps` on x86 architectures).
+* **Reason for unexpected result:** The V4 optimization (`rsqrt`) on modern CPUs can be counterproductive compared to V3. Modern ALUs have highly optimized hardware for `sqrt`, making the overhead of approximation instructions introduced by `-ffast-math` slower than the exact calculation. 
+* **Measured Time:** ~20.8 seconds (Slower than V3).
 
 ---
 
-### V7: Il Gran Finale - Multi-Threading con OpenMP
-* **Tecnica:** Parallelizzazione Shared Memory su più core tramite direttive OpenMP (`#pragma omp parallel for schedule(static)`).
-  [Image of multi-core CPU architecture memory hierarchy]
-* **L'Architettura:** Fino alla V6, avevamo ottimizzato tutto il possibile per un **singolo core** (Memoria SoA, Registri Locali, Vettorizzazione SIMD e Tiling). Con la V7, abbiamo sguinzagliato tutti i core logici e fisici del processore.
-* **Perché funziona perfettamente:** Abbiamo applicato la parallelizzazione sul **ciclo esterno** (quello delle particelle `i`). Questo garantisce che ogni thread (core) prenda in carico un pacchetto indipendente di particelle. Nessun core cercherà mai di scrivere sulla stessa cella di memoria (`p.vx[i]`) contemporaneamente a un altro core. Questo elimina alla radice il rischio di *Race Conditions* e la necessità di usare lenti meccanismi di sincronizzazione (lock/mutex).
-* **La Sinergia Definitiva:** 1. Il ciclo esterno divide il carico sui core (Thread-Level Parallelism).
-  2. Il ciclo interno di ogni core macina i dati a blocchi di 8 tramite AVX (Data-Level Parallelism).
-  3. Il SoA e il Tiling garantiscono che la RAM riesca ad alimentare tutti i core senza intasare il bus di memoria.
-* **Risultato Finale:** La barriera del secondo è stata infranta. Il tempo di calcolo scala quasi linearmente con il numero di core a disposizione, portando l'uso della CPU al 100%.
+### V5: Hardware Triumphs Over Algorithm (SIMD Auto-Vectorization)
+* **Technique:** Forced SIMD vectorization via `#pragma omp simd` and a return to $O(N^2)$ algorithmic complexity.
+* **The Paradox (Why V1 blocked V5):** V1's mathematical optimization (Newton's Third Law) introduced a "triangular" loop (`j = i + 1`) and sparse memory writes (`p.vx[j] -= ...`). Compilers hate irregular loops and disable SIMD optimizations (AVX/AVX2) if they detect writes that might create dependencies or corrupt data (Scatter Writes).
+* **The Solution:** To unlock 256-bit vector registers (which compute 8 particles per single clock cycle), we had to **abandon Newton's Third Law**. We reverted to a full double loop (`j = 0; j < N`), literally doubling the logical operations to perform. However:
+    1. The loop became a perfect rectangle again, perfectly predictable for the compiler.
+    2. We completely removed conditional jumps (Branchless Programming): there's no `if(i == j) continue;`. When `i == j`, the distance `dx` is 0, and the force contribution adds a harmless `+0` to the accumulator.
+    3. The inner loop now only performs contiguous reads and sums into local accumulators (`reduction`). No slow memory writes.
+* **Result:** Even though the program performs twice the mathematical operations of V3, the hardware executes them 8 times faster by processing contiguous memory blocks.
+* **Measured Time:** ~6.6 seconds. (A **7x** speedup compared to the initial baseline, executed entirely in Single-Thread).
 
-* **Tempo misurato:** ~0.96 secondi. (**Speedup finale rispetto alla Baseline V0: ~45x**).
+---
+
+### V6: Cache Blocking (Tiling) and Memory Tuning
+* **Technique:** Subdividing the iteration space into blocks (Loop Tiling) to keep data within the L1/L2 Cache and mitigate the "Memory Wall".
+
+* **The Problem (Looking ahead to Multi-Threading):** Even though V5 executes calculations at impressive speeds thanks to SIMD, the position arrays (`x, y, z`) for 100,000 particles occupy about 1.2 MB. This far exceeds L1 Cache capacity (typically 32-64 KB per core). At each iteration, the CPU must evict old data to load new data, stressing the RAM bus. If we enabled multi-threading now, the cores would end up fighting for memory bandwidth.
+* **The Solution and Tuning:** We transformed the double loop into a quadruple loop, calculating interactions between "tiles" of particles. We performed empirical tuning to find the *sweet spot* for block size (`BLOCK_SIZE`).
+  * With `BLOCK_SIZE = 256`, the program was slightly slower (~6.3s) due to excessive loop overhead and too many intermediate memory writes.
+  * With `BLOCK_SIZE = 4096`, we hit the mark. 4096 `float`s occupy about 16 KB per array (total ~48 KB for 3D positions), a size that fits perfectly between the L1 Cache and the lightning-fast L2 Cache of the processor, eliminating useless trips to RAM.
+* **Result:** We stabilized performance by nullifying the memory bottleneck. The code is now structurally ready to be distributed across multiple cores without crashing the memory bus.
+* **Measured Time:** ~6.0 seconds.
+
+---
+
+### V7: The Grand Finale - Multi-Threading with OpenMP
+* **Technique:** Shared Memory parallelization across multiple cores using OpenMP directives (`#pragma omp parallel for schedule(static)`).
+
+* **The Architecture:** Up to V6, we optimized everything possible for a **single core** (SoA Memory, Local Registers, SIMD Vectorization, and Tiling). With V7, we unleashed all logical and physical cores of the processor.
+* **Why it works perfectly:** We applied parallelization to the **outer loop** (the $i$ particles). This guarantees that each thread (core) takes charge of an independent batch of particles. No core will ever try to write to the same memory cell (`p.vx[i]`) simultaneously with another core. This eradicates the risk of *Race Conditions* and the need to use slow synchronization mechanisms (locks/mutexes).
+* **The Ultimate Synergy:** 1. The outer loop divides the load across cores (Thread-Level Parallelism).
+  2. Each core's inner loop crunches data in blocks of 8 via AVX (Data-Level Parallelism).
+  3. SoA and Tiling ensure the RAM can feed all cores without clogging the memory bus.
+* **Final Result:** The 1-second barrier has been broken. Computation time scales almost linearly with the number of available cores, driving CPU usage to 100%.
+* **Measured Time:** ~0.96 seconds. (**Final Speedup vs V0 Baseline: ~45x**).
 
 ---
 
@@ -176,7 +178,7 @@ I test sono stati eseguiti su un sistema di $N = 100.000$ particelle.
 * **OpenMP** (for multithreading in V7)
 
 ### Build Instructions
-This project uses CMake. To achieve the benchmarked execution times, it is **strictly required** to compile the project in `Release` mode. If compiled in `Debug` mode, the Auto-Vectorization (SIMD) and optimization flags (`-O3`) will be disabled, resulting in drastically slower execution.
+This project uses CMake. To achieve the benchmarked execution times, it is **strictly required** to compile the project in `Release` mode. If compiled in `Debug` mode, Auto-Vectorization (SIMD) and optimization flags (`-O3`) will be disabled, resulting in drastically slower execution.
 
 Open your terminal, clone the repository, and run the following commands:
 
@@ -200,4 +202,3 @@ Once the compilation is complete, run the executable:
 ```bash
 ./NBodyOptimization
 ```
-
