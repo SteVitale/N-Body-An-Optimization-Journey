@@ -4,6 +4,43 @@ Questo progetto esplora le tecniche di ottimizzazione in C++ (High Performance C
 
 ---
 
+## 📊 Risultati e Benchmark (N = 100.000)
+
+Tutti i test sono stati eseguiti rigorosamente in modalità `Release` (flag `-O3 -march=native -ffast-math`).
+
+| Versione | Ottimizzazione Applicata | Tempo (s) | Speedup vs V0 | Note |
+| :--- | :--- | :--- | :--- | :--- |
+| **V0** | Baseline (Algoritmo Ingenuo $O(N^2)$) | 43.30 s | **1.0x** | Nessuna ottimizzazione, layout AoS. |
+| **V1** | Terzo Principio di Newton | 20.25 s | **2.1x** | Operazioni dimezzate, ma introduce loop irregolare. |
+| **V2** | Data-Oriented Design (SoA) | 33.06 s | **1.3x** | *Peggioramento*: troppi accessi sparsi in RAM e Cache Misses. |
+| **V3** | Loop Hoisting + Accumulatori | 18.37 s | **2.3x** | Risolve i problemi del SoA sfruttando i registri CPU. |
+| **V4** | Intrinsics Matematici (`rsqrt`) | 20.84 s | **2.0x** | *Peggioramento*: L'hardware moderno per `sqrt` batte l'approssimazione. |
+| **V5** | Vettorizzazione SIMD forzata (AVX) | 6.00 s | **7.2x** | Rinuncia a V1 per sbloccare loop perfetti a blocchi di 8 nei registri a 256-bit. |
+| **V6** | Cache Blocking / Tiling | 6.00 s | **7.2x** | Stabilizza la Cache L1/L2 (Block = 4096) mitigando il Memory Wall. |
+| **V7** | Multi-Threading (OpenMP) | 0.96 s | **45.1x** | Parallelizzazione sui core CPU senza *Race Conditions*. Il muro del secondo è infranto. |
+
+### 📉 Grafico dei Tempi di Esecuzione (Più basso è meglio)
+Il seguente grafico mostra il crollo dei tempi di esecuzione passando da un codice "naïve" a un codice *Hardware-Aware*.
+
+```mermaid
+xychart-beta
+  title "Execution Time in Seconds (Lower is Better)"
+  x-axis ["V0 Base", "V1 Newton", "V2 SoA", "V3 Hoist", "V4 Math", "V5 SIMD", "V6 Tiling", "V7 OpenMP"]
+  y-axis "Time (s)" 0 --> 45
+  bar [43.30, 20.25, 33.06, 18.37, 20.84, 6.00, 6.00, 0.96]
+```
+
+### 🚀 Grafico dello Speedup (Più alto è meglio)
+Il moltiplicatore prestazionale rispetto alla baseline di partenza. Dimostra come la "Simpatia Meccanica" verso l'hardware possa spremere prestazioni irraggiungibili dal solo algoritmo.
+```mermaid
+xychart-beta
+  title "Performance Speedup vs V0 (Higher is Better)"
+  x-axis ["V0 Base", "V1 Newton", "V2 SoA", "V3 Hoist", "V4 Math", "V5 SIMD", "V6 Tiling", "V7 OpenMP"]
+  y-axis "Speedup (x)" 0 --> 46
+  bar [1.0, 2.1, 1.3, 2.3, 2.0, 7.2, 7.2, 45.1]
+```
+---
+
 ## 1. Descrizione del Problema
 Il problema N-Body consiste nel calcolare le forze di interazione (gravitazionali o elettrostatiche) che ogni particella in un sistema esercita su tutte le altre. Nella versione "Direct", l'interazione viene calcolata esplicitamente per ogni singola coppia.
 
@@ -163,3 +200,4 @@ Once the compilation is complete, run the executable:
 ```bash
 ./NBodyOptimization
 ```
+
