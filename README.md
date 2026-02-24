@@ -99,7 +99,7 @@ The code's evolution will follow these rigorous steps, measuring execution times
 
 ---
 
-# Optimization History: From Naive to HPC
+## 5. Optimization History: From Naive to HPC
 
 This section traces the evolution of our N-Body solver. Each version applies a specific optimization technique (algorithmic, memory, or mathematical), proving how "mechanical sympathy" towards hardware can drastically reduce execution times.
 
@@ -181,7 +181,7 @@ Tests were run on a system of $N = 100,000$ particles.
 
 ---
 
-## 🛠️ How to Build and Run
+## 6. How to Build and Run
 
 ### Prerequisites
 * **CMake** (version 3.10 or higher)
@@ -213,4 +213,5 @@ Once the compilation is complete, run the executable:
 ```bash
 ./NBodyOptimization
 ```
+
 
