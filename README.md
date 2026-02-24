@@ -126,4 +126,40 @@ I test sono stati eseguiti su un sistema di $N = 100.000$ particelle.
   2. Il ciclo interno di ogni core macina i dati a blocchi di 8 tramite AVX (Data-Level Parallelism).
   3. Il SoA e il Tiling garantiscono che la RAM riesca ad alimentare tutti i core senza intasare il bus di memoria.
 * **Risultato Finale:** La barriera del secondo è stata infranta. Il tempo di calcolo scala quasi linearmente con il numero di core a disposizione, portando l'uso della CPU al 100%.
+
 * **Tempo misurato:** ~0.96 secondi. (**Speedup finale rispetto alla Baseline V0: ~45x**).
+
+---
+
+## 🛠️ How to Build and Run
+
+### Prerequisites
+* **CMake** (version 3.10 or higher)
+* A C++ compiler that supports **C++20** (GCC or Clang)
+* **OpenMP** (for multithreading in V7)
+
+### Build Instructions
+This project uses CMake. To achieve the benchmarked execution times, it is **strictly required** to compile the project in `Release` mode. If compiled in `Debug` mode, the Auto-Vectorization (SIMD) and optimization flags (`-O3`) will be disabled, resulting in drastically slower execution.
+
+Open your terminal, clone the repository, and run the following commands:
+
+```bash
+# 1. Clone the repository and enter the directory
+git clone thisRepo
+cd thisRepo
+
+# 2. Create a build directory and enter it
+mkdir build && cd build
+
+# 3. Configure the project in Release mode
+cmake -DCMAKE_BUILD_TYPE=Release ..
+
+# 4. Compile the project using all available CPU cores
+make -j $(nproc)
+```
+
+### Run Instructions
+Once the compilation is complete, run the executable:
+```bash
+./NBodyOptimization
+```
