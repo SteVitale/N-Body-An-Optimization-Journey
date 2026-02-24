@@ -11,7 +11,7 @@ This project explores C++ optimization techniques (High Performance Computing) a
 - [3. Why the Naive Version is "Intractable"](#3-why-the-naive-version-is-intractable)
 - [4. Optimization Roadmap](#4-optimization-roadmap)
 - [5. Optimization History: From Naive to HPC](#5-optimization-history-from-naive-to-hpc)
-- [6. How to Build and Run](#️6-how-to-build-and-run)
+- [6. How to Build and Run](#6-how-to-build-and-run)
 
 ---
 
@@ -213,6 +213,7 @@ Once the compilation is complete, run the executable:
 ```bash
 ./NBodyOptimization
 ```
+
 
 
 
